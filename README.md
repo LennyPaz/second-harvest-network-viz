@@ -25,7 +25,7 @@ A three-tier network topology (edge router → core switch → access switches �
 It's a single self-contained HTML file. No build tools, no install.
 
 1. Clone or download this repo.
-2. Open `second-harvest-network.html` in Chrome.
+2. Open `index.html` in Chrome.
 
 That's it. Three.js loads from CDN.
 
