@@ -1,0 +1,1595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Second Harvest Network - Visualization</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            overflow: hidden; 
+            background: #1a1a2e; 
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+        #container { width: 100vw; height: 100vh; cursor: grab; }
+        #container:active { cursor: grabbing; }
+        
+        .ui-overlay {
+            position: fixed;
+            pointer-events: none;
+            z-index: 100;
+        }
+        
+        .ui-overlay > * { pointer-events: auto; }
+        
+        .header {
+            top: 0; left: 0; right: 0;
+            background: linear-gradient(to bottom, rgba(20,20,40,0.95), transparent);
+            padding: 24px 32px;
+        }
+        
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 400;
+            letter-spacing: 0.15em;
+            color: white;
+        }
+        
+        .header h1 span { color: #00d4ff; font-weight: 600; }
+        
+        .header p {
+            color: #888;
+            font-size: 0.85rem;
+            margin-top: 6px;
+        }
+        
+        .control-panel {
+            bottom: 0; left: 0; right: 0;
+            background: linear-gradient(to top, rgba(20,20,40,0.98), transparent);
+            padding: 30px 40px;
+        }
+        
+        .controls-wrapper {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 30px;
+        }
+        
+        .stats-group { display: flex; gap: 40px; }
+        
+        .stat { text-align: center; }
+        
+        .stat-value {
+            font-size: 2.2rem;
+            font-weight: 300;
+            font-family: 'Courier New', monospace;
+            color: #00d4ff;
+        }
+        
+        .stat-value.green { color: #00ff88; }
+        .stat-value.purple { color: #ff66ff; }
+        
+        .stat-label {
+            font-size: 0.65rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            margin-top: 4px;
+        }
+        
+        .camera-buttons { display: flex; gap: 8px; }
+        
+        .camera-btn {
+            padding: 10px 18px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: #aaa;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-radius: 6px;
+        }
+        
+        .camera-btn:hover {
+            background: rgba(0,212,255,0.15);
+            border-color: rgba(0,212,255,0.4);
+            color: #00d4ff;
+        }
+        
+        .camera-btn.active {
+            background: #00d4ff;
+            border-color: #00d4ff;
+            color: #000;
+            font-weight: 600;
+        }
+        
+        .filter-group { display: flex; flex-direction: column; gap: 6px; }
+        .filter-label { color: #888; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .filter-buttons { display: flex; flex-wrap: wrap; gap: 4px; }
+        .filter-btn {
+            padding: 4px 10px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 12px;
+            background: rgba(255,255,255,0.05);
+            color: #aaa;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filter-btn:hover { background: rgba(255,255,255,0.15); }
+        .filter-btn.active { 
+            background: var(--filter-color, #00d4ff); 
+            border-color: var(--filter-color, #00d4ff); 
+            color: #000;
+            font-weight: 600;
+        }
+        .filter-btn[data-type="all"].active { background: #00d4ff; border-color: #00d4ff; }
+        
+        #auto-orbit-toggle.auto-active { background: rgba(0,255,136,0.3); border-color: #00ff88; color: #00ff88; }
+        
+        .playback-controls { display: flex; gap: 12px; align-items: center; }
+        
+        .play-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: #00d4ff;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: #000;
+            transition: all 0.2s;
+        }
+        
+        .play-btn:hover { transform: scale(1.05); }
+        .play-btn.paused { background: #ff4466; }
+        
+        .speed-control { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .speed-control input { width: 80px; accent-color: #00d4ff; }
+        .speed-control label { font-size: 0.7rem; color: #666; }
+        
+        .instructions {
+            text-align: center;
+            margin-top: 15px;
+            color: #555;
+            font-size: 0.75rem;
+        }
+        .instructions span { color: #00d4ff; }
+        
+        .packet-info {
+            top: 100px;
+            right: 30px;
+            background: rgba(30,30,50,0.95);
+            border: 1px solid rgba(0,212,255,0.3);
+            border-radius: 12px;
+            padding: 20px;
+            min-width: 240px;
+            display: none;
+        }
+        
+        .packet-info.visible { display: block; }
+        
+        .packet-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .packet-indicator {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .packet-title { font-size: 0.9rem; font-weight: 600; color: white; }
+        
+        .packet-details { display: flex; flex-direction: column; gap: 10px; }
+        
+        .packet-detail { display: flex; justify-content: space-between; }
+        .packet-detail-label { color: #777; font-size: 0.75rem; }
+        .packet-detail-value { color: #00d4ff; font-family: monospace; font-size: 0.8rem; }
+        
+        .stop-tracking-btn {
+            width: 100%;
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #888;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        
+        .stop-tracking-btn:hover {
+            background: rgba(255,50,50,0.1);
+            border-color: rgba(255,50,50,0.3);
+            color: #ff6666;
+        }
+        
+        .legend {
+            top: 100px;
+            left: 30px;
+            background: rgba(30,30,50,0.9);
+            border-radius: 10px;
+            padding: 16px;
+        }
+        
+        .legend h3 {
+            color: #aaa;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 12px;
+        }
+        
+        .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .legend-color { width: 10px; height: 10px; border-radius: 50%; }
+        .legend-label { color: #999; font-size: 0.75rem; }
+        
+        .loading {
+            position: fixed;
+            inset: 0;
+            background: #1a1a2e;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            transition: opacity 0.4s;
+        }
+        
+        .loading.hidden { opacity: 0; pointer-events: none; }
+        
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(0,212,255,0.2);
+            border-top-color: #00d4ff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .loading-text {
+            color: #00d4ff;
+            margin-top: 16px;
+            font-size: 0.85rem;
+            letter-spacing: 0.1em;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Initializing Network</div>
+    </div>
+
+    <div id="container"></div>
+    
+    <div class="ui-overlay header">
+        <h1><span>Second Harvest</span> Network Visualization</h1>
+        <p>Three-Tier Architecture • 9 VLANs • Real-Time Packet Flow</p>
+    </div>
+    
+    <div class="ui-overlay control-panel">
+        <div class="controls-wrapper">
+            <div class="stats-group">
+                <div class="stat">
+                    <div class="stat-value" id="packet-count">0</div>
+                    <div class="stat-label">Active Packets</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value purple" id="total-packets">0</div>
+                    <div class="stat-label">Total Sent</div>
+                </div>
+            </div>
+            
+            <div class="filter-group">
+                <label class="filter-label">Packet Types:</label>
+                <div class="filter-buttons">
+                    <button class="filter-btn active" data-type="all">All</button>
+                    <button class="filter-btn" data-type="data" style="--filter-color: #00ff88">Data</button>
+                    <button class="filter-btn" data-type="voip" style="--filter-color: #ff66ff">VoIP</button>
+                    <button class="filter-btn" data-type="dns" style="--filter-color: #00ddff">DNS</button>
+                    <button class="filter-btn" data-type="dhcp" style="--filter-color: #ffdd00">DHCP</button>
+                    <button class="filter-btn" data-type="internet" style="--filter-color: #ff8800">HTTP</button>
+                    <button class="filter-btn" data-type="print" style="--filter-color: #ff4488">Print</button>
+                </div>
+            </div>
+            
+            <div class="camera-buttons">
+                <button class="camera-btn active" data-mode="orbit">🎥 Orbit</button>
+                <button class="camera-btn" data-mode="follow">🎯 Follow</button>
+                <button class="camera-btn" data-mode="firstPerson">👁️ First Person</button>
+                <button class="camera-btn" data-mode="top">📐 Top</button>
+                <button class="camera-btn" id="auto-orbit-toggle">▶ Auto</button>
+            </div>
+            
+            <div class="playback-controls">
+                <div class="speed-control">
+                    <input type="range" id="speed" min="0.5" max="2" step="0.25" value="1">
+                    <label>Speed: <span id="speed-value">1x</span></label>
+                </div>
+                <button class="play-btn" id="play-btn">⏸</button>
+            </div>
+        </div>
+        <div class="instructions">
+            <span>Drag</span> to rotate • <span>Right-drag</span> to pan • <span>Scroll/pinch</span> to zoom • <span>Click packet</span> to track • <span>Auto</span> toggles orbit
+        </div>
+    </div>
+    
+    <div class="ui-overlay packet-info" id="packet-info">
+        <div class="packet-header">
+            <div class="packet-indicator" id="packet-indicator"></div>
+            <div class="packet-title">PACKET <span id="packet-id">#0</span></div>
+        </div>
+        <div class="packet-details">
+            <div class="packet-detail">
+                <span class="packet-detail-label">Type</span>
+                <span class="packet-detail-value" id="packet-type">DATA</span>
+            </div>
+            <div class="packet-detail">
+                <span class="packet-detail-label">From</span>
+                <span class="packet-detail-value" id="packet-from">-</span>
+            </div>
+            <div class="packet-detail">
+                <span class="packet-detail-label">To</span>
+                <span class="packet-detail-value" id="packet-to">-</span>
+            </div>
+            <div class="packet-detail">
+                <span class="packet-detail-label">Progress</span>
+                <span class="packet-detail-value" id="packet-progress">0%</span>
+            </div>
+        </div>
+        <button class="stop-tracking-btn" id="stop-tracking">Stop Tracking</button>
+    </div>
+    
+    <div class="ui-overlay legend">
+        <h3>Packet Types</h3>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #00ff88;"></div>
+            <span class="legend-label">Data</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #ff66ff;"></div>
+            <span class="legend-label">VoIP</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #00ddff;"></div>
+            <span class="legend-label">DNS</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #ffdd00;"></div>
+            <span class="legend-label">DHCP</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #ff8800;"></div>
+            <span class="legend-label">Internet</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background: #ff4488;"></div>
+            <span class="legend-label">Print</span>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Scene setup - lighter background for contrast
+        const container = document.getElementById('container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x12121f);
+        
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 500);
+        
+        // Will be set by spherical coords after scene setup
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); // Limit pixel ratio
+        container.appendChild(renderer.domElement);
+        
+        // Simplified lighting
+        const ambientLight = new THREE.AmbientLight(0x4466aa, 0.6);
+        scene.add(ambientLight);
+        
+        const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        mainLight.position.set(20, 30, 20);
+        scene.add(mainLight);
+        
+        const fillLight = new THREE.DirectionalLight(0x4488ff, 0.3);
+        fillLight.position.set(-20, 10, -10);
+        scene.add(fillLight);
+        
+        // Simple floor
+        const floorGeo = new THREE.PlaneGeometry(100, 100);
+        const floorMat = new THREE.MeshLambertMaterial({ color: 0x1a1a28 });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = -1.5;
+        scene.add(floor);
+        
+        // Grid - more visible
+        const gridHelper = new THREE.GridHelper(80, 40, 0x00aaff, 0x2a2a3a);
+        gridHelper.position.y = -1.48;
+        gridHelper.material.opacity = 0.4;
+        gridHelper.material.transparent = true;
+        scene.add(gridHelper);
+        
+        // Reduced ambient particles
+        const particleCount = 500;
+        const particleGeo = new THREE.BufferGeometry();
+        const particlePos = new Float32Array(particleCount * 3);
+        const particleSpeeds = [];
+        
+        for (let i = 0; i < particleCount; i++) {
+            particlePos[i * 3] = (Math.random() - 0.5) * 80;
+            particlePos[i * 3 + 1] = Math.random() * 25;
+            particlePos[i * 3 + 2] = (Math.random() - 0.5) * 80;
+            particleSpeeds.push(Math.random() * 0.015 + 0.005);
+        }
+        
+        particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePos, 3));
+        const particleMat = new THREE.PointsMaterial({
+            color: 0x4488ff,
+            size: 0.1,
+            transparent: true,
+            opacity: 0.5
+        });
+        const particles = new THREE.Points(particleGeo, particleMat);
+        scene.add(particles);
+        
+        // Device storage
+        const devices = {};
+        const connections = [];
+        const packets = [];
+        
+        const packetTypes = {
+            data: { color: 0x00ff88, name: 'DATA' },
+            voip: { color: 0xff66ff, name: 'VOIP' },
+            dns: { color: 0x00ddff, name: 'DNS' },
+            dhcp: { color: 0xffdd00, name: 'DHCP' },
+            internet: { color: 0xff8800, name: 'HTTP' },
+            print: { color: 0xff4488, name: 'PRINT' }
+        };
+        
+        // Simplified device models with better contrast
+        function createPC() {
+            const group = new THREE.Group();
+            
+            // Monitor
+            const monitorFrame = new THREE.Mesh(
+                new THREE.BoxGeometry(1.0, 0.7, 0.06),
+                new THREE.MeshLambertMaterial({ color: 0x3a3a4a })
+            );
+            monitorFrame.position.y = 0.6;
+            group.add(monitorFrame);
+            
+            // Screen - bright for visibility
+            const screen = new THREE.Mesh(
+                new THREE.BoxGeometry(0.85, 0.55, 0.02),
+                new THREE.MeshBasicMaterial({ color: 0x0066aa })
+            );
+            screen.position.set(0, 0.6, 0.04);
+            group.add(screen);
+            
+            // Stand
+            const stand = new THREE.Mesh(
+                new THREE.BoxGeometry(0.15, 0.3, 0.15),
+                new THREE.MeshLambertMaterial({ color: 0x3a3a4a })
+            );
+            stand.position.y = 0.15;
+            group.add(stand);
+            
+            // Tower
+            const tower = new THREE.Mesh(
+                new THREE.BoxGeometry(0.2, 0.5, 0.4),
+                new THREE.MeshLambertMaterial({ color: 0x4a4a5a })
+            );
+            tower.position.set(0.7, 0.25, 0);
+            group.add(tower);
+            
+            // LED
+            const led = new THREE.Mesh(
+                new THREE.BoxGeometry(0.03, 0.02, 0.01),
+                new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+            );
+            led.position.set(0.7, 0.4, 0.21);
+            group.add(led);
+            
+            group.userData.type = 'pc';
+            return group;
+        }
+        
+        function createRouter() {
+            const group = new THREE.Group();
+            
+            // Body - lighter color
+            const body = new THREE.Mesh(
+                new THREE.BoxGeometry(1.8, 0.35, 1.1),
+                new THREE.MeshLambertMaterial({ color: 0x4a4a5a })
+            );
+            group.add(body);
+            
+            // Front panel
+            const panel = new THREE.Mesh(
+                new THREE.BoxGeometry(1.7, 0.3, 0.02),
+                new THREE.MeshLambertMaterial({ color: 0x2a2a3a })
+            );
+            panel.position.z = 0.56;
+            group.add(panel);
+            
+            // LEDs
+            for (let i = 0; i < 6; i++) {
+                const led = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.05, 0.03, 0.01),
+                    new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? 0x00ff00 : 0x00aaff })
+                );
+                led.position.set(-0.6 + i * 0.2, 0.08, 0.57);
+                group.add(led);
+            }
+            
+            // Antennas
+            for (let i = -1; i <= 1; i++) {
+                const antenna = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.02, 0.02, 1.0, 6),
+                    new THREE.MeshLambertMaterial({ color: 0x5a5a6a })
+                );
+                antenna.position.set(i * 0.5, 0.65, -0.4);
+                antenna.rotation.x = 0.2;
+                group.add(antenna);
+            }
+            
+            group.userData.type = 'router';
+            return group;
+        }
+        
+        function createSwitch(isCore = false) {
+            const group = new THREE.Group();
+            const scale = isCore ? 1.3 : 1;
+            const color = isCore ? 0x3a5a4a : 0x3a4a5a;
+            
+            const body = new THREE.Mesh(
+                new THREE.BoxGeometry(2.2 * scale, 0.25, 0.7 * scale),
+                new THREE.MeshLambertMaterial({ color })
+            );
+            group.add(body);
+            
+            // Ports
+            const portCount = isCore ? 16 : 8;
+            for (let i = 0; i < portCount; i++) {
+                const led = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.04, 0.02, 0.01),
+                    new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+                );
+                led.position.set(-0.9 * scale + i * 0.12 * scale, 0.05, 0.36 * scale);
+                group.add(led);
+            }
+            
+            // Label strip for core
+            if (isCore) {
+                const label = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.4, 0.1, 0.01),
+                    new THREE.MeshBasicMaterial({ color: 0x00aaff })
+                );
+                label.position.set(0.85, 0, 0.36);
+                group.add(label);
+            }
+            
+            group.userData.type = isCore ? 'coreSwitch' : 'accessSwitch';
+            return group;
+        }
+        
+        function createServer(serverType) {
+            const group = new THREE.Group();
+            
+            const typeColors = { 'dc-dns': 0x3a4a6a, 'file': 0x3a5a4a, 'print': 0x5a3a5a, 'app': 0x5a4a3a };
+            
+            const body = new THREE.Mesh(
+                new THREE.BoxGeometry(1.5, 0.45, 0.9),
+                new THREE.MeshLambertMaterial({ color: typeColors[serverType] || 0x4a4a5a })
+            );
+            group.add(body);
+            
+            // Drive bays
+            for (let i = 0; i < 3; i++) {
+                const bay = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.25, 0.3, 0.02),
+                    new THREE.MeshLambertMaterial({ color: 0x2a2a3a })
+                );
+                bay.position.set(-0.4 + i * 0.35, 0, 0.46);
+                group.add(bay);
+                
+                const led = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.03, 0.02, 0.01),
+                    new THREE.MeshBasicMaterial({ color: 0x00ff88 })
+                );
+                led.position.set(-0.4 + i * 0.35, 0.1, 0.47);
+                group.add(led);
+            }
+            
+            // Type indicator
+            const indicator = new THREE.Mesh(
+                new THREE.BoxGeometry(0.06, 0.35, 0.01),
+                new THREE.MeshBasicMaterial({ color: serverType === 'dc-dns' ? 0x00aaff : serverType === 'file' ? 0x00ff88 : serverType === 'print' ? 0xff44aa : 0xffaa00 })
+            );
+            indicator.position.set(0.68, 0, 0.46);
+            group.add(indicator);
+            
+            group.userData.type = 'server';
+            return group;
+        }
+        
+        function createPhone() {
+            const group = new THREE.Group();
+            
+            const base = new THREE.Mesh(
+                new THREE.BoxGeometry(0.4, 0.06, 0.3),
+                new THREE.MeshLambertMaterial({ color: 0x3a3a4a })
+            );
+            group.add(base);
+            
+            const screen = new THREE.Mesh(
+                new THREE.BoxGeometry(0.25, 0.12, 0.02),
+                new THREE.MeshBasicMaterial({ color: 0x003355 })
+            );
+            screen.position.set(0, 0.12, -0.05);
+            screen.rotation.x = -0.3;
+            group.add(screen);
+            
+            const led = new THREE.Mesh(
+                new THREE.BoxGeometry(0.02, 0.02, 0.01),
+                new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+            );
+            led.position.set(-0.12, 0.05, 0.14);
+            group.add(led);
+            
+            group.userData.type = 'phone';
+            return group;
+        }
+        
+        function createPrinter() {
+            const group = new THREE.Group();
+            
+            const body = new THREE.Mesh(
+                new THREE.BoxGeometry(0.9, 0.45, 0.6),
+                new THREE.MeshLambertMaterial({ color: 0x5a5a6a })
+            );
+            body.position.y = 0.225;
+            group.add(body);
+            
+            const tray = new THREE.Mesh(
+                new THREE.BoxGeometry(0.6, 0.03, 0.35),
+                new THREE.MeshLambertMaterial({ color: 0x4a4a5a })
+            );
+            tray.position.set(0, 0.35, 0.35);
+            group.add(tray);
+            
+            const led = new THREE.Mesh(
+                new THREE.BoxGeometry(0.03, 0.03, 0.01),
+                new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+            );
+            led.position.set(-0.3, 0.4, 0.31);
+            group.add(led);
+            
+            group.userData.type = 'printer';
+            return group;
+        }
+        
+        function createAP() {
+            const group = new THREE.Group();
+            
+            const disc = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.3, 0.35, 0.1, 16),
+                new THREE.MeshLambertMaterial({ color: 0xcccccc })
+            );
+            group.add(disc);
+            
+            const ring = new THREE.Mesh(
+                new THREE.RingGeometry(0.2, 0.26, 16),
+                new THREE.MeshBasicMaterial({ color: 0x00ff88, side: THREE.DoubleSide })
+            );
+            ring.rotation.x = -Math.PI / 2;
+            ring.position.y = 0.06;
+            group.add(ring);
+            
+            group.userData.type = 'ap';
+            group.userData.ring = ring;
+            return group;
+        }
+        
+        function createInternetCloud() {
+            const group = new THREE.Group();
+            
+            const cloudMat = new THREE.MeshLambertMaterial({ color: 0x4488ff, transparent: true, opacity: 0.8 });
+            
+            [[0, 0, 0, 0.8], [-0.5, 0.1, 0, 0.5], [0.5, 0.1, 0, 0.5], [0, 0.35, 0.1, 0.45]].forEach(([x, y, z, r]) => {
+                const sphere = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 12), cloudMat);
+                sphere.position.set(x, y, z);
+                group.add(sphere);
+            });
+            
+            // Bright core
+            const core = new THREE.Mesh(
+                new THREE.SphereGeometry(0.3, 10, 10),
+                new THREE.MeshBasicMaterial({ color: 0x66aaff })
+            );
+            group.add(core);
+            
+            group.userData.type = 'internet';
+            return group;
+        }
+        
+        function createLaptop() {
+            const group = new THREE.Group();
+            
+            const base = new THREE.Mesh(
+                new THREE.BoxGeometry(0.7, 0.03, 0.45),
+                new THREE.MeshLambertMaterial({ color: 0x4a4a5a })
+            );
+            base.position.y = 0.015;
+            group.add(base);
+            
+            const screen = new THREE.Mesh(
+                new THREE.BoxGeometry(0.65, 0.4, 0.02),
+                new THREE.MeshLambertMaterial({ color: 0x4a4a5a })
+            );
+            screen.position.set(0, 0.22, -0.2);
+            screen.rotation.x = 0.2;
+            group.add(screen);
+            
+            const display = new THREE.Mesh(
+                new THREE.BoxGeometry(0.55, 0.32, 0.01),
+                new THREE.MeshBasicMaterial({ color: 0x004477 })
+            );
+            display.position.set(0, 0.22, -0.18);
+            display.rotation.x = 0.2;
+            group.add(display);
+            
+            group.userData.type = 'laptop';
+            return group;
+        }
+        
+        // Network topology - matching Packet Tracer design
+        // Positions: switches at y=2, endpoints in front (higher z), APs at y=3.5
+        const networkNodes = [
+            { id: 'internet', name: 'Internet', type: 'internet', x: 0, y: 12, z: 0 },
+            { id: 'edge-router', name: 'Edge Router', type: 'router', x: 0, y: 8, z: 0 },
+            { id: 'core-switch', name: 'Core Switch', type: 'coreSwitch', x: 0, y: 4.5, z: 0 },
+            
+            // Servers behind core
+            { id: 'dc-dns', name: 'DC/DNS', type: 'server', x: -5, y: 5, z: -3, serverType: 'dc-dns' },
+            { id: 'file-server', name: 'File Server', type: 'server', x: -2, y: 5, z: -4, serverType: 'file' },
+            { id: 'print-server', name: 'Print Server', type: 'server', x: 2, y: 5, z: -4, serverType: 'print' },
+            { id: 'app-server', name: 'App Server', type: 'server', x: 5, y: 5, z: -3, serverType: 'app' },
+            
+            // Access switches
+            { id: 'admin-switch', name: 'Admin Switch', type: 'accessSwitch', x: -12, y: 2, z: 0 },
+            { id: 'warehouse-switch', name: 'Warehouse Switch', type: 'accessSwitch', x: -4, y: 2, z: 0 },
+            { id: 'programs-switch', name: 'Programs Switch', type: 'accessSwitch', x: 4, y: 2, z: 0 },
+            { id: 'volunteer-switch', name: 'Volunteer Switch', type: 'accessSwitch', x: 12, y: 2, z: 0 },
+            
+            // Admin area - devices IN FRONT of switch (higher z = toward camera)
+            { id: 'admin-pc1', name: 'Admin PC 1', type: 'pc', x: -14, y: 0, z: 3 },
+            { id: 'admin-pc2', name: 'Admin PC 2', type: 'pc', x: -13, y: 0, z: 4.5 },
+            { id: 'admin-pc3', name: 'Admin PC 3', type: 'pc', x: -11, y: 0, z: 4.5 },
+            { id: 'admin-pc4', name: 'Admin PC 4', type: 'pc', x: -10, y: 0, z: 3 },
+            { id: 'admin-printer', name: 'Admin Printer', type: 'printer', x: -12.5, y: 0, z: 6 },
+            { id: 'admin-phone1', name: 'Admin Phone 1', type: 'phone', x: -13.5, y: 0, z: 6 },
+            { id: 'admin-phone2', name: 'Admin Phone 2', type: 'phone', x: -11.5, y: 0, z: 6 },
+            { id: 'admin-ap', name: 'Admin AP', type: 'ap', x: -12, y: 3.5, z: 4 },
+            { id: 'admin-laptop', name: 'Admin Laptop', type: 'laptop', x: -10.5, y: 0, z: 6.5, wireless: true, ap: 'admin-ap' },
+            
+            // Warehouse/Ops area - devices in front
+            { id: 'ops-pc1', name: 'Ops PC 1', type: 'pc', x: -6, y: 0, z: 3 },
+            { id: 'ops-pc2', name: 'Ops PC 2', type: 'pc', x: -5, y: 0, z: 4.5 },
+            { id: 'ops-pc3', name: 'Ops PC 3', type: 'pc', x: -3, y: 0, z: 4.5 },
+            { id: 'ops-pc4', name: 'Ops PC 4', type: 'pc', x: -2, y: 0, z: 3 },
+            { id: 'warehouse-printer', name: 'WH Printer', type: 'printer', x: -4.5, y: 0, z: 6 },
+            { id: 'ops-phone1', name: 'Ops Phone 1', type: 'phone', x: -5.5, y: 0, z: 6 },
+            { id: 'ops-phone2', name: 'Ops Phone 2', type: 'phone', x: -3.5, y: 0, z: 6 },
+            { id: 'warehouse-ap1', name: 'WH AP 1', type: 'ap', x: -4, y: 3.5, z: 4 },
+            { id: 'warehouse-ap2', name: 'WH AP 2', type: 'ap', x: -4, y: 3.5, z: 7 },
+            { id: 'coldstorage-ap', name: 'Cold Storage AP', type: 'ap', x: -2, y: 3.5, z: 6 },
+            { id: 'ops-laptop', name: 'Ops Laptop', type: 'laptop', x: -2.5, y: 0, z: 6.5, wireless: true, ap: 'warehouse-ap1' },
+            
+            // Programs area - devices in front
+            { id: 'prog-pc1', name: 'Programs PC 1', type: 'pc', x: 2, y: 0, z: 3 },
+            { id: 'prog-pc2', name: 'Programs PC 2', type: 'pc', x: 3, y: 0, z: 4.5 },
+            { id: 'prog-pc3', name: 'Programs PC 3', type: 'pc', x: 5, y: 0, z: 4.5 },
+            { id: 'prog-pc4', name: 'Programs PC 4', type: 'pc', x: 6, y: 0, z: 3 },
+            { id: 'programs-printer', name: 'Prog Printer', type: 'printer', x: 3.5, y: 0, z: 6 },
+            { id: 'prog-phone1', name: 'Prog Phone 1', type: 'phone', x: 2.5, y: 0, z: 6 },
+            { id: 'prog-phone2', name: 'Prog Phone 2', type: 'phone', x: 4.5, y: 0, z: 6 },
+            { id: 'programs-ap', name: 'Programs AP', type: 'ap', x: 4, y: 3.5, z: 4 },
+            
+            // Development area - connected to programs switch
+            { id: 'dev-pc1', name: 'Dev PC 1', type: 'pc', x: 6.5, y: 0, z: 6 },
+            { id: 'dev-pc2', name: 'Dev PC 2', type: 'pc', x: 7.5, y: 0, z: 5 },
+            { id: 'dev-phone', name: 'Dev Phone', type: 'phone', x: 5.5, y: 0, z: 6 },
+            
+            // Volunteer area
+            { id: 'volunteer-ap', name: 'Guest AP', type: 'ap', x: 12, y: 3.5, z: 4 },
+            { id: 'volunteer-laptop1', name: 'Guest Laptop 1', type: 'laptop', x: 10, y: 0, z: 4, wireless: true, ap: 'volunteer-ap' },
+            { id: 'volunteer-laptop2', name: 'Guest Laptop 2', type: 'laptop', x: 12, y: 0, z: 5.5, wireless: true, ap: 'volunteer-ap' },
+            { id: 'volunteer-laptop3', name: 'Guest Laptop 3', type: 'laptop', x: 14, y: 0, z: 4, wireless: true, ap: 'volunteer-ap' },
+        ];
+        
+        // Wired connections - excludes wireless devices
+        const networkConnections = [
+            ['internet', 'edge-router'],
+            ['edge-router', 'core-switch'],
+            ['core-switch', 'dc-dns'],
+            ['core-switch', 'file-server'],
+            ['core-switch', 'print-server'],
+            ['core-switch', 'app-server'],
+            ['core-switch', 'admin-switch'],
+            ['core-switch', 'warehouse-switch'],
+            ['core-switch', 'programs-switch'],
+            ['core-switch', 'volunteer-switch'],
+            // Admin wired
+            ['admin-switch', 'admin-pc1'],
+            ['admin-switch', 'admin-pc2'],
+            ['admin-switch', 'admin-pc3'],
+            ['admin-switch', 'admin-pc4'],
+            ['admin-switch', 'admin-printer'],
+            ['admin-switch', 'admin-phone1'],
+            ['admin-switch', 'admin-phone2'],
+            ['admin-switch', 'admin-ap'],
+            // Warehouse wired
+            ['warehouse-switch', 'ops-pc1'],
+            ['warehouse-switch', 'ops-pc2'],
+            ['warehouse-switch', 'ops-pc3'],
+            ['warehouse-switch', 'ops-pc4'],
+            ['warehouse-switch', 'warehouse-printer'],
+            ['warehouse-switch', 'ops-phone1'],
+            ['warehouse-switch', 'ops-phone2'],
+            ['warehouse-switch', 'warehouse-ap1'],
+            ['warehouse-switch', 'warehouse-ap2'],
+            ['warehouse-switch', 'coldstorage-ap'],
+            // Programs wired
+            ['programs-switch', 'prog-pc1'],
+            ['programs-switch', 'prog-pc2'],
+            ['programs-switch', 'prog-pc3'],
+            ['programs-switch', 'prog-pc4'],
+            ['programs-switch', 'programs-printer'],
+            ['programs-switch', 'prog-phone1'],
+            ['programs-switch', 'prog-phone2'],
+            ['programs-switch', 'programs-ap'],
+            ['programs-switch', 'dev-pc1'],
+            ['programs-switch', 'dev-pc2'],
+            ['programs-switch', 'dev-phone'],
+            // Volunteer - only AP is wired
+            ['volunteer-switch', 'volunteer-ap'],
+        ];
+        
+        // Wireless connections (laptop -> AP)
+        const wirelessConnections = [];
+        networkNodes.filter(n => n.wireless).forEach(node => {
+            wirelessConnections.push({ device: node.id, ap: node.ap });
+        });
+        
+        // Create devices
+        networkNodes.forEach(node => {
+            let mesh;
+            switch(node.type) {
+                case 'internet': mesh = createInternetCloud(); break;
+                case 'router': mesh = createRouter(); break;
+                case 'coreSwitch': mesh = createSwitch(true); break;
+                case 'accessSwitch': mesh = createSwitch(false); break;
+                case 'server': mesh = createServer(node.serverType); break;
+                case 'pc': mesh = createPC(); break;
+                case 'phone': mesh = createPhone(); break;
+                case 'printer': mesh = createPrinter(); break;
+                case 'ap': mesh = createAP(); break;
+                case 'laptop': mesh = createLaptop(); break;
+            }
+            
+            mesh.position.set(node.x, node.y, node.z);
+            Object.assign(mesh.userData, node);
+            scene.add(mesh);
+            devices[node.id] = mesh;
+        });
+        
+        // Create cables - simpler, brighter
+        networkConnections.forEach(([fromId, toId]) => {
+            const from = devices[fromId];
+            const to = devices[toId];
+            if (!from || !to) return;
+            
+            const start = from.position.clone();
+            const end = to.position.clone();
+            const mid = start.clone().add(end).multiplyScalar(0.5);
+            mid.y += 0.8;
+            
+            const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
+            const points = curve.getPoints(20);
+            
+            const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+            const lineMat = new THREE.LineBasicMaterial({ color: 0x4488aa, transparent: true, opacity: 0.5 });
+            const line = new THREE.Line(lineGeo, lineMat);
+            scene.add(line);
+            
+            connections.push({ fromId, toId, curve, wireless: false });
+        });
+        
+        // Create wireless connections - dashed visual
+        wirelessConnections.forEach(({ device, ap }) => {
+            const from = devices[device];
+            const to = devices[ap];
+            if (!from || !to) return;
+            
+            const start = from.position.clone();
+            start.y += 0.3; // Start slightly above device
+            const end = to.position.clone();
+            const mid = start.clone().add(end).multiplyScalar(0.5);
+            mid.y += 1.5; // Higher arc for wireless
+            
+            const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
+            const points = curve.getPoints(30);
+            
+            // Create dashed line effect using points
+            const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+            const lineMat = new THREE.LineDashedMaterial({ 
+                color: 0x66ddff, 
+                transparent: true, 
+                opacity: 0.6,
+                dashSize: 0.3,
+                gapSize: 0.15
+            });
+            const line = new THREE.Line(lineGeo, lineMat);
+            line.computeLineDistances(); // Required for dashed material
+            scene.add(line);
+            
+            // Store wireless connection for routing
+            connections.push({ fromId: device, toId: ap, curve, wireless: true });
+        });
+        
+        // Simplified packet system
+        let totalPacketsSent = 0;
+        
+        function createPacket(fromId, toId, type = 'data') {
+            const from = devices[fromId];
+            const to = devices[toId];
+            if (!from || !to) return null;
+            
+            const config = packetTypes[type];
+            const fromNode = networkNodes.find(n => n.id === fromId);
+            const isWireless = fromNode && fromNode.wireless;
+            
+            // Simple glowing sphere
+            const geo = new THREE.SphereGeometry(0.18, 10, 10);
+            const mat = new THREE.MeshBasicMaterial({ color: config.color });
+            const mesh = new THREE.Mesh(geo, mat);
+            
+            // Outer glow - larger for wireless
+            const glowSize = isWireless ? 0.4 : 0.3;
+            const glowGeo = new THREE.SphereGeometry(glowSize, 8, 8);
+            const glowMat = new THREE.MeshBasicMaterial({ color: config.color, transparent: true, opacity: 0.3 });
+            const glow = new THREE.Mesh(glowGeo, glowMat);
+            mesh.add(glow);
+            
+            // Add wifi symbol indicator for wireless packets
+            if (isWireless) {
+                const wifiRing = new THREE.Mesh(
+                    new THREE.RingGeometry(0.25, 0.3, 16),
+                    new THREE.MeshBasicMaterial({ color: 0x66ddff, side: THREE.DoubleSide, transparent: true, opacity: 0.6 })
+                );
+                wifiRing.rotation.x = Math.PI / 2;
+                mesh.add(wifiRing);
+            }
+            
+            mesh.position.copy(from.position);
+            scene.add(mesh);
+            
+            // Simple trail - just a few points
+            const trailGeo = new THREE.BufferGeometry();
+            const trailPos = new Float32Array(15 * 3);
+            for (let i = 0; i < 15; i++) {
+                trailPos[i * 3] = from.position.x;
+                trailPos[i * 3 + 1] = from.position.y;
+                trailPos[i * 3 + 2] = from.position.z;
+            }
+            trailGeo.setAttribute('position', new THREE.BufferAttribute(trailPos, 3));
+            const trailMat = new THREE.PointsMaterial({ color: config.color, size: 0.12, transparent: true, opacity: 0.6 });
+            const trail = new THREE.Points(trailGeo, trailMat);
+            scene.add(trail);
+            
+            // Build path
+            const path = findPath(fromId, toId);
+            const pathCurves = [];
+            
+            for (let i = 0; i < path.length - 1; i++) {
+                const conn = connections.find(c =>
+                    (c.fromId === path[i] && c.toId === path[i+1]) ||
+                    (c.fromId === path[i+1] && c.toId === path[i])
+                );
+                if (conn) {
+                    pathCurves.push({ curve: conn.curve, reversed: conn.fromId !== path[i] });
+                }
+            }
+            
+            totalPacketsSent++;
+            
+            return {
+                mesh, trail, trailPos,
+                path, pathCurves,
+                currentSegment: 0,
+                progress: 0,
+                speed: 0.012 + Math.random() * 0.006,
+                type, config,
+                id: totalPacketsSent,
+                fromId, toId
+            };
+        }
+        
+        function findPath(from, to) {
+            // Check if source is wireless device
+            const fromNode = networkNodes.find(n => n.id === from);
+            const isWirelessSource = fromNode && fromNode.wireless;
+            const sourceAP = fromNode && fromNode.ap;
+            
+            const getSwitch = (id) => {
+                if (id.includes('admin')) return 'admin-switch';
+                if (id.includes('ops') || id.includes('warehouse') || id.includes('coldstorage')) return 'warehouse-switch';
+                if (id.includes('prog') || id.includes('dev')) return 'programs-switch';
+                if (id.includes('volunteer')) return 'volunteer-switch';
+                if (id.includes('server') || id === 'dc-dns' || id === 'file-server' || id === 'print-server' || id === 'app-server') return 'core-switch';
+                if (id === 'internet') return 'edge-router';
+                return null;
+            };
+            
+            // For wireless devices, first hop is to their AP
+            let fromSwitch = getSwitch(from);
+            let path = [];
+            
+            if (isWirelessSource && sourceAP) {
+                // Wireless device -> AP -> Switch -> ...
+                const apSwitch = getSwitch(sourceAP);
+                path.push(from, sourceAP);
+                from = sourceAP;
+                fromSwitch = apSwitch;
+            } else {
+                path.push(from);
+            }
+            
+            const toSwitch = getSwitch(to);
+            
+            if (to === 'internet') {
+                if (fromSwitch === 'core-switch') return [...path, 'core-switch', 'edge-router', 'internet'];
+                if (from !== path[path.length - 1]) {
+                    return [...path, fromSwitch, 'core-switch', 'edge-router', 'internet'];
+                }
+                return [...path, fromSwitch, 'core-switch', 'edge-router', 'internet'];
+            }
+            if (toSwitch === 'core-switch') {
+                if (fromSwitch === 'core-switch') return [...path, 'core-switch', to];
+                return [...path, fromSwitch, 'core-switch', to];
+            }
+            if (fromSwitch === toSwitch) return [...path, fromSwitch, to];
+            return [...path, fromSwitch, 'core-switch', toSwitch, to];
+        }
+        
+        // Expanded traffic patterns with all device types
+        const trafficPatterns = [
+            // Admin traffic
+            { from: 'admin-pc1', to: 'internet', type: 'internet' },
+            { from: 'admin-pc2', to: 'file-server', type: 'data' },
+            { from: 'admin-pc3', to: 'print-server', type: 'print' },
+            { from: 'admin-pc4', to: 'dc-dns', type: 'dns' },
+            { from: 'admin-phone1', to: 'app-server', type: 'voip' },
+            { from: 'admin-phone2', to: 'app-server', type: 'voip' },
+            { from: 'admin-laptop', to: 'internet', type: 'internet' }, // wireless
+            { from: 'admin-laptop', to: 'file-server', type: 'data' }, // wireless
+            { from: 'admin-pc1', to: 'dc-dns', type: 'dhcp' },
+            
+            // Warehouse/Ops traffic
+            { from: 'ops-pc1', to: 'app-server', type: 'data' },
+            { from: 'ops-pc2', to: 'file-server', type: 'data' },
+            { from: 'ops-pc3', to: 'dc-dns', type: 'dns' },
+            { from: 'ops-pc4', to: 'print-server', type: 'print' },
+            { from: 'ops-phone1', to: 'app-server', type: 'voip' },
+            { from: 'ops-phone2', to: 'app-server', type: 'voip' },
+            { from: 'ops-laptop', to: 'app-server', type: 'data' }, // wireless
+            { from: 'ops-pc2', to: 'dc-dns', type: 'dhcp' },
+            
+            // Programs traffic
+            { from: 'prog-pc1', to: 'dc-dns', type: 'dns' },
+            { from: 'prog-pc2', to: 'file-server', type: 'data' },
+            { from: 'prog-pc3', to: 'internet', type: 'internet' },
+            { from: 'prog-pc4', to: 'app-server', type: 'data' },
+            { from: 'prog-phone1', to: 'app-server', type: 'voip' },
+            { from: 'prog-phone2', to: 'app-server', type: 'voip' },
+            { from: 'prog-pc1', to: 'dc-dns', type: 'dhcp' },
+            
+            // Development traffic
+            { from: 'dev-pc1', to: 'internet', type: 'internet' },
+            { from: 'dev-pc2', to: 'file-server', type: 'data' },
+            { from: 'dev-phone', to: 'app-server', type: 'voip' },
+            { from: 'dev-pc1', to: 'dc-dns', type: 'dns' },
+            
+            // Volunteer/Guest traffic (all wireless)
+            { from: 'volunteer-laptop1', to: 'internet', type: 'internet' },
+            { from: 'volunteer-laptop2', to: 'internet', type: 'internet' },
+            { from: 'volunteer-laptop3', to: 'internet', type: 'internet' },
+            { from: 'volunteer-laptop1', to: 'dc-dns', type: 'dhcp' },
+            { from: 'volunteer-laptop2', to: 'dc-dns', type: 'dns' },
+        ];
+        
+        // Active packet filter
+        let activeFilter = 'all';
+        
+        function generateTraffic() {
+            if (isPaused || packets.length > 25) return;
+            
+            // Filter patterns by active filter
+            let availablePatterns = trafficPatterns;
+            if (activeFilter !== 'all') {
+                availablePatterns = trafficPatterns.filter(p => p.type === activeFilter);
+            }
+            if (availablePatterns.length === 0) return;
+            
+            const pattern = availablePatterns[Math.floor(Math.random() * availablePatterns.length)];
+            const packet = createPacket(pattern.from, pattern.to, pattern.type);
+            if (packet) packets.push(packet);
+        }
+        
+        // State
+        let isPaused = false;
+        let speedMultiplier = 1;
+        let cameraMode = 'orbit';
+        let followingPacket = null;
+        let cameraAngle = 0;
+        let targetCameraPos = new THREE.Vector3(30, 22, 30);
+        let targetLookAt = new THREE.Vector3(0, 4, 0);
+        let currentLookAt = new THREE.Vector3(0, 4, 0);
+        let time = 0;
+        
+        let trafficInterval = setInterval(generateTraffic, 500);
+        
+        // UI
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        
+        const packetCountEl = document.getElementById('packet-count');
+        const totalPacketsEl = document.getElementById('total-packets');
+        const packetInfoEl = document.getElementById('packet-info');
+        const packetIndicatorEl = document.getElementById('packet-indicator');
+        const packetIdEl = document.getElementById('packet-id');
+        const packetTypeEl = document.getElementById('packet-type');
+        const packetFromEl = document.getElementById('packet-from');
+        const packetToEl = document.getElementById('packet-to');
+        const packetProgressEl = document.getElementById('packet-progress');
+        const playBtn = document.getElementById('play-btn');
+        const speedSlider = document.getElementById('speed');
+        const speedValueEl = document.getElementById('speed-value');
+        const stopTrackingBtn = document.getElementById('stop-tracking');
+        const cameraBtns = document.querySelectorAll('.camera-btn[data-mode]');
+        const filterBtns = document.querySelectorAll('.filter-btn');
+        const autoOrbitBtn = document.getElementById('auto-orbit-toggle');
+        
+        // Filter buttons
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                activeFilter = btn.dataset.type;
+                filterBtns.forEach(b => b.classList.toggle('active', b === btn));
+            });
+        });
+        
+        // Auto-orbit toggle
+        let autoOrbitEnabled = true;
+        autoOrbitBtn.classList.add('auto-active');
+        
+        autoOrbitBtn.addEventListener('click', () => {
+            autoOrbitEnabled = !autoOrbitEnabled;
+            manualControl = !autoOrbitEnabled;
+            autoOrbitBtn.classList.toggle('auto-active', autoOrbitEnabled);
+            autoOrbitBtn.textContent = autoOrbitEnabled ? '▶ Auto' : '⏹ Auto';
+            if (autoOrbitEnabled) {
+                cameraAngle = camTheta;
+            }
+        });
+        
+        container.addEventListener('click', (e) => {
+            const rect = container.getBoundingClientRect();
+            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+            
+            raycaster.setFromCamera(mouse, camera);
+            const packetMeshes = packets.map(p => p.mesh);
+            const intersects = raycaster.intersectObjects(packetMeshes, true);
+            
+            if (intersects.length > 0) {
+                let clicked = intersects[0].object;
+                while (clicked.parent && clicked.parent.type !== 'Scene') clicked = clicked.parent;
+                
+                const clickedPacket = packets.find(p => p.mesh === clicked);
+                if (clickedPacket) {
+                    followingPacket = clickedPacket;
+                    cameraMode = 'follow';
+                    updateCameraButtons();
+                    showPacketInfo(clickedPacket);
+                }
+            }
+        });
+        
+        playBtn.addEventListener('click', () => {
+            isPaused = !isPaused;
+            playBtn.textContent = isPaused ? '▶' : '⏸';
+            playBtn.classList.toggle('paused', isPaused);
+        });
+        
+        speedSlider.addEventListener('input', () => {
+            speedMultiplier = parseFloat(speedSlider.value);
+            speedValueEl.textContent = speedMultiplier + 'x';
+        });
+        
+        stopTrackingBtn.addEventListener('click', () => {
+            followingPacket = null;
+            cameraMode = 'orbit';
+            updateCameraButtons();
+            packetInfoEl.classList.remove('visible');
+        });
+        
+        cameraBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                cameraMode = btn.dataset.mode;
+                if (cameraMode !== 'follow' && cameraMode !== 'firstPerson') {
+                    followingPacket = null;
+                    packetInfoEl.classList.remove('visible');
+                }
+                updateCameraButtons();
+            });
+        });
+        
+        function updateCameraButtons() {
+            cameraBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.mode === cameraMode));
+        }
+        
+        function showPacketInfo(packet) {
+            packetInfoEl.classList.add('visible');
+            packetIndicatorEl.style.backgroundColor = '#' + packet.config.color.toString(16).padStart(6, '0');
+            packetIdEl.textContent = '#' + packet.id;
+            packetTypeEl.textContent = packet.config.name;
+            packetFromEl.textContent = packet.fromId;
+            packetToEl.textContent = packet.toId;
+        }
+        
+        // Mouse controls state
+        let isMouseDown = false;
+        let isRightMouseDown = false;
+        let lastMouseX = 0, lastMouseY = 0;
+        let manualControl = false; // Once true, stays true until reset
+        
+        // Spherical coordinates for camera
+        let camRadius = 38;
+        let camTheta = Math.PI / 4; // horizontal angle
+        let camPhi = Math.PI / 3;   // vertical angle (from top)
+        let camTarget = new THREE.Vector3(0, 4, 0);
+        
+        // Update camera from spherical coords
+        function updateCameraFromSpherical() {
+            const x = camRadius * Math.sin(camPhi) * Math.cos(camTheta);
+            const y = camRadius * Math.cos(camPhi);
+            const z = camRadius * Math.sin(camPhi) * Math.sin(camTheta);
+            camera.position.set(x + camTarget.x, y + camTarget.y, z + camTarget.z);
+            camera.lookAt(camTarget);
+        }
+        
+        function disableAutoOrbit() {
+            if (autoOrbitEnabled && cameraMode === 'orbit') {
+                autoOrbitEnabled = false;
+                manualControl = true;
+                autoOrbitBtn.classList.remove('auto-active');
+                autoOrbitBtn.textContent = '⏹ Auto';
+            }
+        }
+        
+        container.addEventListener('mousedown', (e) => {
+            if (e.button === 0) isMouseDown = true;
+            if (e.button === 2) isRightMouseDown = true;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+            
+            // Disable auto-orbit when user drags
+            if (cameraMode === 'orbit') {
+                disableAutoOrbit();
+            }
+        });
+        
+        container.addEventListener('mouseup', (e) => {
+            if (e.button === 0) isMouseDown = false;
+            if (e.button === 2) isRightMouseDown = false;
+        });
+        
+        container.addEventListener('mouseleave', () => {
+            isMouseDown = false;
+            isRightMouseDown = false;
+        });
+        
+        container.addEventListener('mousemove', (e) => {
+            const deltaX = e.clientX - lastMouseX;
+            const deltaY = e.clientY - lastMouseY;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+            
+            if (isMouseDown && cameraMode === 'orbit') {
+                // Rotate camera
+                camTheta -= deltaX * 0.008;
+                camPhi -= deltaY * 0.008;
+                
+                // Clamp vertical angle (don't flip over)
+                camPhi = Math.max(0.3, Math.min(Math.PI - 0.3, camPhi));
+                
+                updateCameraFromSpherical();
+            }
+            
+            if (isRightMouseDown && cameraMode === 'orbit') {
+                // Pan camera target
+                const panSpeed = 0.04;
+                const right = new THREE.Vector3();
+                const forward = new THREE.Vector3();
+                
+                camera.getWorldDirection(forward);
+                right.crossVectors(new THREE.Vector3(0, 1, 0), forward).normalize();
+                forward.y = 0;
+                forward.normalize();
+                
+                camTarget.add(right.multiplyScalar(-deltaX * panSpeed));
+                camTarget.y += deltaY * panSpeed;
+                camTarget.y = Math.max(-5, Math.min(25, camTarget.y));
+                
+                updateCameraFromSpherical();
+            }
+        });
+        
+        // Mouse wheel zoom
+        container.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            if (cameraMode === 'orbit') {
+                disableAutoOrbit();
+                
+                // Zoom - deltaY positive = scroll down = zoom out
+                const zoomSpeed = 0.05;
+                camRadius *= (1 + e.deltaY * zoomSpeed * 0.01);
+                camRadius = Math.max(8, Math.min(100, camRadius));
+                
+                updateCameraFromSpherical();
+            }
+            
+            return false;
+        }, { passive: false });
+        
+        // Touch support for trackpad two-finger scroll and pinch zoom
+        let touchStartDistance = 0;
+        let touchStartTheta = 0;
+        let touchStartPhi = 0;
+        let touchStartRadius = 0;
+        let lastTouchX = 0;
+        let lastTouchY = 0;
+        
+        container.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 2) {
+                // Two finger - prepare for pinch/rotate
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                touchStartDistance = Math.sqrt(dx * dx + dy * dy);
+                touchStartRadius = camRadius;
+                touchStartTheta = camTheta;
+                touchStartPhi = camPhi;
+                
+                // Center point for rotation
+                lastTouchX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                lastTouchY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                
+                if (cameraMode === 'orbit') {
+                    disableAutoOrbit();
+                }
+            } else if (e.touches.length === 1) {
+                lastTouchX = e.touches[0].clientX;
+                lastTouchY = e.touches[0].clientY;
+            }
+        }, { passive: true });
+        
+        container.addEventListener('touchmove', (e) => {
+            if (cameraMode !== 'orbit') return;
+            
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                
+                // Pinch to zoom
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const scale = touchStartDistance / distance;
+                camRadius = Math.max(8, Math.min(100, touchStartRadius * scale));
+                
+                // Two-finger drag to rotate
+                const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                const deltaX = centerX - lastTouchX;
+                const deltaY = centerY - lastTouchY;
+                lastTouchX = centerX;
+                lastTouchY = centerY;
+                
+                camTheta -= deltaX * 0.005;
+                camPhi -= deltaY * 0.005;
+                camPhi = Math.max(0.3, Math.min(Math.PI - 0.3, camPhi));
+                
+                updateCameraFromSpherical();
+            } else if (e.touches.length === 1) {
+                // Single finger - rotate
+                e.preventDefault();
+                disableAutoOrbit();
+                
+                const deltaX = e.touches[0].clientX - lastTouchX;
+                const deltaY = e.touches[0].clientY - lastTouchY;
+                lastTouchX = e.touches[0].clientX;
+                lastTouchY = e.touches[0].clientY;
+                
+                camTheta -= deltaX * 0.008;
+                camPhi -= deltaY * 0.008;
+                camPhi = Math.max(0.3, Math.min(Math.PI - 0.3, camPhi));
+                
+                updateCameraFromSpherical();
+            }
+        }, { passive: false });
+        
+        // Prevent context menu on right click
+        container.addEventListener('contextmenu', (e) => e.preventDefault());
+        
+        // Animation
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.016 * speedMultiplier;
+            
+            if (!isPaused) {
+                // Particles
+                const pos = particles.geometry.attributes.position.array;
+                for (let i = 0; i < particleCount; i++) {
+                    pos[i * 3 + 1] += particleSpeeds[i] * speedMultiplier;
+                    if (pos[i * 3 + 1] > 25) pos[i * 3 + 1] = 0;
+                }
+                particles.geometry.attributes.position.needsUpdate = true;
+                
+                // Packets
+                for (let i = packets.length - 1; i >= 0; i--) {
+                    const p = packets[i];
+                    
+                    if (p.currentSegment >= p.pathCurves.length) {
+                        scene.remove(p.mesh);
+                        scene.remove(p.trail);
+                        packets.splice(i, 1);
+                        if (followingPacket === p) {
+                            followingPacket = null;
+                            cameraMode = 'orbit';
+                            updateCameraButtons();
+                            packetInfoEl.classList.remove('visible');
+                        }
+                        continue;
+                    }
+                    
+                    const seg = p.pathCurves[p.currentSegment];
+                    p.progress += p.speed * speedMultiplier;
+                    
+                    if (p.progress >= 1) {
+                        p.progress = 0;
+                        p.currentSegment++;
+                        continue;
+                    }
+                    
+                    let t = seg.reversed ? 1 - p.progress : p.progress;
+                    const position = seg.curve.getPoint(t);
+                    p.mesh.position.copy(position);
+                    
+                    // Pulse
+                    const pulse = 1 + Math.sin(time * 8) * 0.1;
+                    p.mesh.scale.setScalar(pulse);
+                    
+                    // Trail
+                    const trailArr = p.trail.geometry.attributes.position.array;
+                    for (let j = trailArr.length / 3 - 1; j > 0; j--) {
+                        trailArr[j * 3] = trailArr[(j - 1) * 3];
+                        trailArr[j * 3 + 1] = trailArr[(j - 1) * 3 + 1];
+                        trailArr[j * 3 + 2] = trailArr[(j - 1) * 3 + 2];
+                    }
+                    trailArr[0] = position.x;
+                    trailArr[1] = position.y;
+                    trailArr[2] = position.z;
+                    p.trail.geometry.attributes.position.needsUpdate = true;
+                    
+                    if (followingPacket === p) {
+                        const progress = (p.currentSegment + p.progress) / p.pathCurves.length;
+                        packetProgressEl.textContent = Math.round(progress * 100) + '%';
+                    }
+                }
+                
+                // Camera
+                switch (cameraMode) {
+                    case 'orbit':
+                        if (!manualControl) {
+                            // Auto orbit only if user hasn't taken control
+                            cameraAngle += 0.002 * speedMultiplier;
+                            camTheta = cameraAngle;
+                            updateCameraFromSpherical();
+                        }
+                        // When in manual control, camera stays where user put it
+                        break;
+                    case 'top':
+                        camera.position.lerp(new THREE.Vector3(0, 50, 0.1), 0.05);
+                        currentLookAt.lerp(new THREE.Vector3(0, 0, 0), 0.07);
+                        camera.lookAt(currentLookAt);
+                        break;
+                    case 'follow':
+                        if (followingPacket) {
+                            const fpos = followingPacket.mesh.position;
+                            const seg = followingPacket.pathCurves[followingPacket.currentSegment];
+                            if (seg) {
+                                let t = Math.min(followingPacket.progress + 0.15, 1);
+                                if (seg.reversed) t = 1 - t;
+                                const ahead = seg.curve.getPoint(t);
+                                const dir = ahead.clone().sub(fpos).normalize();
+                                targetCameraPos.copy(fpos).add(dir.multiplyScalar(-6)).add(new THREE.Vector3(0, 3, 0));
+                                targetLookAt.copy(fpos);
+                            }
+                            camera.position.lerp(targetCameraPos, 0.05);
+                            currentLookAt.lerp(targetLookAt, 0.07);
+                            camera.lookAt(currentLookAt);
+                        }
+                        break;
+                    case 'firstPerson':
+                        if (followingPacket) {
+                            targetCameraPos.copy(followingPacket.mesh.position).add(new THREE.Vector3(0, 0.3, 0));
+                            const seg = followingPacket.pathCurves[followingPacket.currentSegment];
+                            if (seg) {
+                                let t = Math.min(followingPacket.progress + 0.25, 1);
+                                if (seg.reversed) t = 1 - t;
+                                targetLookAt.copy(seg.curve.getPoint(t));
+                            }
+                            camera.position.lerp(targetCameraPos, 0.08);
+                            currentLookAt.lerp(targetLookAt, 0.1);
+                            camera.lookAt(currentLookAt);
+                        }
+                        break;
+                }
+            }
+            
+            packetCountEl.textContent = packets.length;
+            totalPacketsEl.textContent = totalPacketsSent;
+            
+            renderer.render(scene, camera);
+        }
+        
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        
+        setTimeout(() => document.getElementById('loading').classList.add('hidden'), 800);
+        
+        // Initialize camera position
+        updateCameraFromSpherical();
+        
+        animate();
+    </script>
+</body>
+</html>
